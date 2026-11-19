@@ -125,3 +125,10 @@ For assigning a separate developer to build the first Coloring Mode plugin witho
 This handoff delivers the application source tree and an integrated first-party Coloring Mode bundle, intended to run after the documented dependencies are installed; it is not a certified commercial release. The optional plugin can be explicitly enabled/disabled from the workspace. A general third-party ZIP installer, plugin dependency resolver/update rollback UI, schema migration framework beyond project v1 validation, lasso/transform, advanced multi-track editing, browser automation, and physical-device validation are not part of this implementation. Plugins execute as trusted same-origin code; capability checks are not a sandbox. Fit-to-A4 export is supported; calibrated 1:1 printing is not claimed.
 
 The exact implementation scope, test results and remaining acceptance work are documented in [`IMPLEMENTATION_REPORT.md`](./IMPLEMENTATION_REPORT.md).
+
+
+## Running the host application
+
+Run `npm install` once, then `npm run dev`. The optional Coloring Mode plugin does not need to be compiled for the host to start or pass the default host checks; its prebuilt bundle is loaded only when explicitly enabled in Workspace Settings. To rebuild plugin source, run `npm run build:coloring` as a separate task. Its separate test suite is `npm run test:plugins`.
+
+The timeline panel has a track selector along its left edge. Use **+ Add track** to create a new independent animation track in the current project. Use the project menu's **New animation** action to create a separate animation project.

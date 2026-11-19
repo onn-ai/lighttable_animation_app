@@ -16,7 +16,7 @@ The delivered application source is a React 19 / TypeScript / Vite modular monol
 - Revisioned atomic transactions, expected-revision checks, undo/redo and bounded history.
 - Pointer Events input routing, pointer capture, coalesced samples, cancellation, viewport mapping and horizontal view flip.
 - Host-owned path rendering; pressure-aware pencil input; graphite and non-photo-blue presets; eraser and transient stroke preview.
-- Single-track user-facing filmstrip backed by tracks, exposure clips and cels; blank, duplicate and delete frame operations; playback at 12/24 FPS; four cel layers with visibility, opacity and lock controls.
+- User-facing filmstrip backed by tracks, exposure clips and cels; the workspace can create and switch between animation tracks, with independent blank cels for each existing frame on a new track; blank, duplicate and delete frame operations; playback at 12/24 FPS; four cel layers with visibility, opacity and lock controls.
 - Host-owned onion-skin neighbor resolution for previous/following distinct cels.
 - IndexedDB project/asset persistence with an in-memory fallback, autosave coalescing, local recovery and a visible warning when persistent browser storage is unavailable.
 - `.ltproj` ZIP package read/write with bounded decompression, path checks, integrity verification and opaque plugin data preservation.
@@ -25,7 +25,7 @@ The delivered application source is a React 19 / TypeScript / Vite modular monol
 
 ### Optional Coloring Mode integration
 
-Coloring Mode remains optional and can be explicitly enabled or disabled from the host. Its public-SDK integrations include its mode/workspace contributions, paint-bucket and color-picker tools, palette/options panels, Draft command, region-node renderer, plugin-local preferences and content-addressed mask assets. Its host renderer gate is registered through `registerNodeRenderGate()` and suppresses the specified node family before both `prepare()` and `render()` for editor, thumbnail and export render intents. Plugin contributions are disposed on deactivation; project data is not stripped merely because the plugin is disabled or unavailable.
+Coloring Mode remains optional and can be explicitly enabled or disabled from Workspace Settings; it is no longer presented in the primary drawing/layers inspector. The normal host `dev` and `build` scripts do not build or require the optional plugin. Its public-SDK integrations include its mode/workspace contributions, paint-bucket and color-picker tools, palette/options panels, Draft command, region-node renderer, plugin-local preferences and content-addressed mask assets. Its host renderer gate is registered through `registerNodeRenderGate()` and suppresses the specified node family before both `prepare()` and `render()` for editor, thumbnail and export render intents. Plugin contributions are disposed on deactivation; project data is not stripped merely because the plugin is disabled or unavailable.
 
 The plugin's originally supplied integration report described mock-host testing only. The appended lead implementation update now records the host-side work and current tests. This does not constitute browser/device integration certification.
 
@@ -60,13 +60,13 @@ python3 tests/validate-schemas.py
 | Core TypeScript compilation | PASS |
 | Host TypeScript compile against local UI shim | PASS |
 | Test TypeScript compilation | PASS |
-| Host runtime regression checks | 13 / 13 PASS |
+| Host runtime regression checks | 15 / 15 PASS |
 | Coloring Mode algorithm + integration tests | 21 / 21 PASS |
 | Supplied standalone Coloring Mode controller tests | 12 / 12 PASS |
 | JSON Schema/example acceptance and rejection checks | PASS |
 | Coloring Mode build script | PASS |
 
-Host runtime coverage includes malformed-project validation, atomic history, frame operations, cel-layer invariants, onion neighbors, render-gate timing, pointer capture/coalesced events/cancellation, ZIP path and CRC checks, project package round-trips, PNG/PDF structure, SDK capability boundaries and autosave revision coalescing.
+Host runtime coverage includes malformed-project validation, atomic history, frame operations, independent track creation/undo, document-space input bounds, cel-layer invariants, onion neighbors, render-gate timing, pointer capture/coalesced events/cancellation, ZIP path and CRC checks, project package round-trips, PNG/PDF structure, SDK capability boundaries and autosave revision coalescing.
 
 The host UI compile uses `tsconfig.hostcheck.json` and a local React declaration shim because dependencies could not be installed in this execution environment. It is not equivalent to a successful full strict compile against installed React/Vite type packages.
 
@@ -85,7 +85,7 @@ The host UI compile uses `tsconfig.hostcheck.json` and a local React declaration
 2. **Production security isolation:** SDK v1 supports trusted in-process plugin code. It does not sandbox untrusted third-party code; only trusted packages should be loaded.
 3. **Schema migration framework:** v1 validation and preservation are implemented; automated migration between arbitrary project schema versions is not complete.
 4. **Advanced editor tools:** lasso, transform/move/rotate/scale, advanced brushes and specialist importers are deferred.
-5. **Advanced timeline:** the user-facing editor is single-track; advanced multi-track editing UI is deferred even though the underlying document model distinguishes tracks, clips and cels.
+5. **Advanced timeline:** basic animation track creation and switching are now available beside the filmstrip. Simultaneous multi-row editing, reordering, track deletion, track-level visibility/opacity controls and richer exposure editing remain deferred. The timeline is still a single project-level time ruler; tracks are parallel drawing lanes.
 6. **Browser/device acceptance:** Chrome desktop/Android and Huion Note E verification remain outstanding.
 7. **Calibrated print:** physical dimensions and printer calibration are not yet enforced for true 1:1 output.
 8. **Dependency-backed release build:** install dependencies and run the full Vite build, strict typecheck and browser/E2E suite in CI before production release.
@@ -102,8 +102,19 @@ npm run build
 npm run dev
 ```
 
-`npm run check` runs the local core/host compile checks and all current host, plugin, controller and schema tests. `npm run build` additionally performs the strict root project typecheck and Vite production bundle; these final steps are intentionally not marked as passed in this handoff.
+The optional Coloring Mode bundle is already included in the source handoff and is loaded only when explicitly enabled. To rebuild it after changing plugin source, run `npm run build:coloring` separately; it is not a prerequisite for starting or building the host application.
+
+`npm run check` runs the core/host compile checks plus host and schema tests. Optional extension checks are separate (`npm run test:plugins`) and do not gate ordinary host development. `npm run build` additionally performs the strict root project typecheck and Vite production bundle; these final steps are intentionally not marked as passed in this handoff.
 
 ## 7. Release recommendation
 
 Treat this repository as an implementation-complete **functional alpha**, not a production-certified release. Before production, complete the release blockers above, especially the real dependency-backed Vite build, browser/device acceptance, plugin installation/security boundary and schema migration strategy. No hardware-specific behavior or production security certification is asserted by this report.
+
+
+## 8. Follow-up fixes after first user run
+
+- IndexedDB schema version is now 2. The upgrade path creates the `pluginStorage` object store for existing version-1 databases, resolving the reported `object store name` activation error.
+- Stroke preview is clipped to the document paper. Core pointer-down events outside the paper are ignored, and pointer samples during a captured gesture are clamped to the paper edge. Ctrl/Cmd+Z and redo cancel any in-progress preview before changing history, preventing a half-finished gesture from subsequently committing.
+- The root `dev` and `build` commands no longer run the optional Coloring Mode compiler. The plugin remains explicitly opt-in under Workspace Settings.
+- The filmstrip now has a compact track selector and `+ Add track` control. A new track starts with a separate empty cel for every current frame. Choose **New animation** from the project menu to create a separate project instead.
+- Core, host and test TypeScript checks pass; host runtime and schema tests pass. This environment still does not contain the complete React/Vite dependency tree, so the full browser UI launch/build remains to be verified on the user's machine.

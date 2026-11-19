@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, ComponentType, ReactNode } from 'react';
 import type { LightTablePlugin, PluginPanelProps, ToolContext } from '../../contracts/plugin-api';
 import {
-  addLayer, deleteFrame, duplicateFrame, getActiveTarget, insertBlankFrame, removeLayer, updateLayer,
+  addLayer, addTrack, deleteFrame, duplicateFrame, getActiveTarget, insertBlankFrame, removeLayer, updateLayer,
 } from '../core/document/operations';
 import {
   cloneValue, createDefaultProject, MAX_USER_FRAME_COUNT, newId, type CorePathSample, type ProjectDocumentV1,
@@ -10,7 +10,7 @@ import {
 import { validateProject } from '../core/document/validate';
 import { TransactionEngine } from '../core/history/transaction-engine';
 import { InputService, type InputSample } from '../core/input/input-service';
-import { ViewportTransform, type ViewportState, zoomAtPoint } from '../core/input/viewport';
+import { ViewportTransform, clampToDocument, isInsideDocument, type ViewportState, zoomAtPoint } from '../core/input/viewport';
 import { RendererRegistry } from '../core/rendering/renderer-registry';
 import { renderCorePath } from '../core/rendering/path-renderer';
 import { type OnionSettings } from '../core/rendering/render-service';
@@ -84,6 +84,7 @@ export default function App(): React.JSX.Element {
   const projectRef = useRef(project);
   const playingRef = useRef(playing);
   const strokeRef = useRef<ActiveStroke | null>(null);
+  const pluginGestureRef = useRef(false);
   const inputServiceRef = useRef(new InputService());
   const viewportRef = useRef<ViewportTransform | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -140,6 +141,17 @@ export default function App(): React.JSX.Element {
       projectRef.current = document;
       setRevision(nextRevision);
       setCurrentTick((tick) => Math.min(tick, document.document.durationTicks - 1));
+      // Undo/redo or project replacement can remove the active track; fall back to a valid host target.
+      if (!document.tracks.some((track) => track.id === trackRef.current) && document.tracks[0]) {
+        const fallbackTrack = document.tracks[0];
+        trackRef.current = fallbackTrack.id;
+        setActiveTrackId(fallbackTrack.id);
+        const fallbackClip = fallbackTrack.clips.find((clip) => clip.startTick <= tickRef.current && tickRef.current < clip.startTick + clip.durationTicks);
+        const fallbackCel = fallbackClip ? document.cels[fallbackClip.celId] : undefined;
+        const fallbackLayerId = fallbackCel?.layers[0]?.id ?? '';
+        layerRef.current = fallbackLayerId;
+        setActiveLayerId(fallbackLayerId);
+      }
       events.emit('document.changed', { projectId: document.projectId, revision: nextRevision, affectedIds: [] });
       events.emit('document.revisionChanged', { revision: nextRevision });
       if (label.startsWith('Undo') || label.startsWith('Redo')) showToast(label);
@@ -254,6 +266,11 @@ export default function App(): React.JSX.Element {
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.clearRect(0, 0, canvas.width, canvas.height);
     viewport.applyToContext(context, dpr);
+    // The preview surface spans the whole workspace; only the document rectangle is drawable.
+    context.save();
+    context.beginPath();
+    context.rect(0, 0, projectRef.current.document.width, projectRef.current.document.height);
+    context.clip();
     if (tool === 'eraser') {
       const sample = samples[samples.length - 1];
       const scale = viewport.scale;
@@ -266,6 +283,7 @@ export default function App(): React.JSX.Element {
       context.lineWidth = 1 / scale;
       context.stroke();
       context.restore();
+      context.restore();
       return;
     }
     renderCorePath(context, {
@@ -273,9 +291,14 @@ export default function App(): React.JSX.Element {
       paint: { color: inkColor, width: brushSize, opacity: brushOpacity, cap: 'round', join: 'round', composite: 'source-over' },
       smoothing: { kind: 'quadratic', amount: 0.15 },
     });
+    context.restore();
   }, [brushSize, inkColor]);
 
-  const sampleAsSdk = (sample: InputSample) => ({ ...sample, modifiers: { ...sample.modifiers } });
+  const sampleAsSdk = (sample: InputSample) => ({
+    ...sample,
+    document: clampToDocument(sample.document, projectRef.current.document.width, projectRef.current.document.height),
+    modifiers: { ...sample.modifiers },
+  });
   useEffect(() => {
     const target = overlayCanvasRef.current;
     if (!target || !storageReady) return;
@@ -283,9 +306,11 @@ export default function App(): React.JSX.Element {
     const unregister = service.attach(target, {
       onDown(sample) {
         if (playingRef.current) return;
+        if (!isInsideDocument(sample.document, projectRef.current.document.width, projectRef.current.document.height)) return;
         const selectedTool = toolRef.current;
         const pluginTool = registries.tools.get(`${PLUGIN_ID}:${selectedTool}`);
         if (pluginTool) {
+          pluginGestureRef.current = true;
           const context = toolContext();
           pluginTool.onPointerDown?.(sampleAsSdk(sample), context!);
           return;
@@ -298,7 +323,7 @@ export default function App(): React.JSX.Element {
         }
         strokeRef.current = {
           target: { celId: targetInfo.celId, layerId: targetInfo.layerId },
-          samples: [{ x: sample.document.x, y: sample.document.y, pressure: sample.pressure, timeOffsetMs: 0, tiltX: sample.tiltX, tiltY: sample.tiltY, twist: sample.twist }],
+          samples: [{ ...clampToDocument(sample.document, projectRef.current.document.width, projectRef.current.document.height), pressure: sample.pressure, timeOffsetMs: 0, tiltX: sample.tiltX, tiltY: sample.tiltY, twist: sample.twist }],
           tool: selectedTool,
           startTimeStamp: sample.timeStamp,
         };
@@ -308,19 +333,22 @@ export default function App(): React.JSX.Element {
         const selectedTool = toolRef.current;
         const pluginTool = registries.tools.get(`${PLUGIN_ID}:${selectedTool}`);
         if (pluginTool) {
+          if (!pluginGestureRef.current) return;
           const context = toolContext();
           for (const item of samples) pluginTool.onPointerMove?.(sampleAsSdk(item), context!);
           return;
         }
         const activeStroke = strokeRef.current;
         if (!activeStroke) return;
-        for (const item of samples) activeStroke.samples.push({ x: item.document.x, y: item.document.y, pressure: item.pressure, timeOffsetMs: Math.max(0, item.timeStamp - activeStroke.startTimeStamp), tiltX: item.tiltX, tiltY: item.tiltY, twist: item.twist });
+        for (const item of samples) activeStroke.samples.push({ ...clampToDocument(item.document, projectRef.current.document.width, projectRef.current.document.height), pressure: item.pressure, timeOffsetMs: Math.max(0, item.timeStamp - activeStroke.startTimeStamp), tiltX: item.tiltX, tiltY: item.tiltY, twist: item.twist });
         paintStrokePreview(activeStroke.samples, activeStroke.tool);
       },
       onUp(sample) {
         const selectedTool = toolRef.current;
         const pluginTool = registries.tools.get(`${PLUGIN_ID}:${selectedTool}`);
         if (pluginTool) {
+          if (!pluginGestureRef.current) return;
+          pluginGestureRef.current = false;
           const context = toolContext();
           pluginTool.onPointerUp?.(sampleAsSdk(sample), context!);
           return;
@@ -329,7 +357,7 @@ export default function App(): React.JSX.Element {
         strokeRef.current = null;
         resetOverlay();
         if (!activeStroke) return;
-        activeStroke.samples.push({ x: sample.document.x, y: sample.document.y, pressure: sample.pressure, timeOffsetMs: Math.max(0, sample.timeStamp - activeStroke.startTimeStamp), tiltX: sample.tiltX, tiltY: sample.tiltY, twist: sample.twist });
+        activeStroke.samples.push({ ...clampToDocument(sample.document, projectRef.current.document.width, projectRef.current.document.height), pressure: sample.pressure, timeOffsetMs: Math.max(0, sample.timeStamp - activeStroke.startTimeStamp), tiltX: sample.tiltX, tiltY: sample.tiltY, twist: sample.twist });
         const node = {
           id: newId('node'), type: 'core.path', typeVersion: 1, transform: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number], visible: true,
           data: {
@@ -354,6 +382,7 @@ export default function App(): React.JSX.Element {
       },
       onCancel(reason) {
         strokeRef.current = null;
+        pluginGestureRef.current = false;
         resetOverlay();
         const pluginTool = registries.tools.get(`${PLUGIN_ID}:${toolRef.current}`);
         pluginTool?.onCancel?.(reason, toolContext()!);
@@ -459,6 +488,27 @@ export default function App(): React.JSX.Element {
     catch (error) { showToast(error instanceof Error ? error.message : String(error), 'error'); }
   };
 
+  const chooseTrack = useCallback((trackId: string) => {
+    inputServiceRef.current.cancel('tool-change');
+    const nextTrack = engine.document.tracks.find((track) => track.id === trackId);
+    if (!nextTrack) return;
+    trackRef.current = trackId;
+    setActiveTrackId(trackId);
+    const clip = nextTrack.clips.find((item) => item.startTick <= tickRef.current && tickRef.current < item.startTick + item.durationTicks);
+    const cel = clip ? engine.document.cels[clip.celId] : undefined;
+    setActiveLayerId(cel?.layers[0]?.id ?? '');
+  }, [engine]);
+
+  const createTrack = useCallback(() => {
+    inputServiceRef.current.cancel('tool-change');
+    if (engine.document.document.durationTicks > MAX_USER_FRAME_COUNT) return;
+    try {
+      const id = addTrack(engine);
+      chooseTrack(id);
+      showToast('New blank animation track added.');
+    } catch (error) { showToast(error instanceof Error ? error.message : String(error), 'error'); }
+  }, [engine, chooseTrack, showToast]);
+
   const createNewProject = useCallback(() => {
     const next = createDefaultProject('Untitled Animation');
     engine.replace(next, 'New project');
@@ -540,10 +590,11 @@ export default function App(): React.JSX.Element {
       const key = event.key.toLowerCase();
       if ((event.metaKey || event.ctrlKey) && key === 'z') {
         event.preventDefault();
+        inputServiceRef.current.cancel('tool-change');
         if (event.shiftKey) engine.redo(); else engine.undo();
         return;
       }
-      if ((event.metaKey || event.ctrlKey) && key === 'y') { event.preventDefault(); engine.redo(); return; }
+      if ((event.metaKey || event.ctrlKey) && key === 'y') { event.preventDefault(); inputServiceRef.current.cancel('tool-change'); engine.redo(); return; }
       if (key === ' ') { event.preventDefault(); togglePlayback(); return; }
       if (key === 'arrowleft') { event.preventDefault(); chooseFrame(currentTick - 1); return; }
       if (key === 'arrowright') { event.preventDefault(); chooseFrame(currentTick + 1); return; }
@@ -672,11 +723,6 @@ export default function App(): React.JSX.Element {
             return <section className="plugin-panel" key={key}><div className="plugin-panel-title">{panel.title}</div><Panel {...panelProps(panel.id)} /></section>;
           })}
         </div>
-        <div className="plugin-card">
-          <div className="plugin-card-top"><span className="plugin-icon">✿</span><span className={`plugin-status ${pluginEnabled ? 'on' : ''}`}>{pluginEnabled ? 'ACTIVE' : 'OPTIONAL'}</span></div>
-          <strong>Coloring Mode</strong><p>Non-destructive fills, palette and outline-only draft mode.</p><p className="plugin-permissions">Trusted first-party code. Enabling grants document read/write, timeline read, canvas input/render, UI contributions, assets and plugin-local storage. No network permission requested.</p>
-          <button onClick={() => void activatePlugin(!pluginEnabled)} disabled={pluginBusy}>{pluginBusy ? 'Working…' : pluginEnabled ? 'Disable plugin' : 'Enable plugin'} <span>→</span></button>
-        </div>
       </aside>}
     </main>
 
@@ -688,9 +734,14 @@ export default function App(): React.JSX.Element {
       </div>
       {!timelineEditsSupported && <div className="timeline-limit-notice" role="status">This project has {project.document.durationTicks} timeline positions. The first-release editor supports up to {MAX_USER_FRAME_COUNT}; only the first {MAX_USER_FRAME_COUNT} are shown and frame structure edits are disabled. The original document and full export remain intact.</div>}
       <div className="filmstrip-wrap">
-        <div className="filmstrip-track-label"><span className="track-color" />{project.tracks.find((track) => track.id === activeTrackId)?.name ?? 'Animation'}<small>TRACK 01</small></div>
+        <div className="filmstrip-track-label" role="tablist" aria-label="Animation tracks">
+          {project.tracks.map((track, index) => <button key={track.id} className={`track-tab ${track.id === activeTrackId ? 'active' : ''}`} onClick={() => chooseTrack(track.id)} role="tab" aria-selected={track.id === activeTrackId} title={`Edit ${track.name}`}>
+            <span className="track-color" /><span className="track-tab-name">{track.name}</span><small>{String(index + 1).padStart(2, '0')}</small>
+          </button>)}
+          <button className="add-track-button" onClick={createTrack} disabled={!timelineEditsSupported} title="Add a separate animation track">＋ Add track</button>
+        </div>
         <div className="filmstrip" id="filmstrip">
-          {Array.from({ length: timelineFrameCount }, (_, tick) => <FrameTile key={tick} project={project} tick={tick} selected={tick === currentTick} registry={renderers} repository={repository} onClick={() => chooseFrame(tick)} />)}
+          {Array.from({ length: timelineFrameCount }, (_, tick) => <FrameTile key={tick} project={project} tick={tick} trackId={activeTrackId} selected={tick === currentTick} registry={renderers} repository={repository} onClick={() => chooseFrame(tick)} />)}
           <button className="frame-add-tile" onClick={addBlank} disabled={!timelineEditsSupported} title="Add blank frame"><span>＋</span><small>NEW FRAME</small></button>
         </div>
       </div>
@@ -703,7 +754,7 @@ export default function App(): React.JSX.Element {
     {toast && <div className={`toast ${toast.tone === 'error' ? 'error' : ''}`}>{toast.tone === 'error' ? '!' : '✓'} {toast.message}</div>}
     {modal.type && <Modal title={modalTitle(modal.type)} onClose={() => setModal({ type: null })}>
       {modal.type === 'projects' && <ProjectModal projects={projectList} onNew={createNewProject} onOpen={openProject} onExport={exportProject} onImport={handleImportInput} onClose={() => setModal({ type: null })} />}
-      {modal.type === 'settings' && <SettingsModal onion={onion} setOnion={setOnion} project={project} setProjectRate={setPlaybackFps} />}
+      {modal.type === 'settings' && <SettingsModal onion={onion} setOnion={setOnion} project={project} setProjectRate={setPlaybackFps} pluginEnabled={pluginEnabled} pluginBusy={pluginBusy} onTogglePlugin={() => void activatePlugin(!pluginEnabled)} />}
       {modal.type === 'export' && <ExportModal busy={exportBusy} progress={exportProgress} onPng={() => void runExport('png')} onPdf={() => void runExport('pdf')} onProject={exportProject} onClose={() => setModal({ type: null })} />}
       {modal.type === 'shortcuts' && <ShortcutsModal />}
     </Modal>}
@@ -727,9 +778,9 @@ function ProjectModal({ projects, onNew, onOpen, onExport, onImport, onClose }: 
   return <div className="project-modal-content"><div className="project-modal-actions"><button className="modal-primary-action" onClick={onNew}>＋ New animation</button><label className="modal-secondary-action">↥ Import project<input type="file" accept=".ltproj,.zip,application/zip" onChange={onImport} /></label><button className="modal-secondary-action" onClick={onExport}>↓ Export current</button></div><div className="modal-section-heading">RECENT PROJECTS <span>{projects.length}</span></div><div className="project-list">{projects.length ? projects.map((item) => <button key={item.projectId} className="project-list-row" onClick={() => onOpen(item.projectId)}><span className="project-thumb">▤</span><span className="project-list-name"><strong>{item.name}</strong><small>{item.durationTicks} frames · Edited {new Date(item.updatedAt).toLocaleString()}</small></span><span className="project-open-arrow">↗</span></button>) : <div className="empty-project-list">Your saved animations will appear here.</div>}</div><div className="modal-footnote">Projects are stored locally in this browser. Export a .ltproj backup to move between devices.</div><button className="modal-close-text" onClick={onClose}>Close</button></div>;
 }
 
-function SettingsModal({ onion, setOnion, project, setProjectRate }: { onion: OnionSettings; setOnion: (value: OnionSettings) => void; project: ProjectDocumentV1; setProjectRate: (fps: number) => void }): React.JSX.Element {
+function SettingsModal({ onion, setOnion, project, setProjectRate, pluginEnabled, pluginBusy, onTogglePlugin }: { onion: OnionSettings; setOnion: (value: OnionSettings) => void; project: ProjectDocumentV1; setProjectRate: (fps: number) => void; pluginEnabled: boolean; pluginBusy: boolean; onTogglePlugin: () => void }): React.JSX.Element {
   const [fps, setFps] = useState(project.document.frameRate.numerator / project.document.frameRate.denominator);
-  return <div className="settings-modal-content"><div className="settings-group"><div className="settings-group-title">PLAYBACK</div><label className="settings-line"><span>Project frame rate</span><select value={fps} onChange={(event) => { const next = Number(event.target.value); setFps(next); setProjectRate(next); }}><option value={12}>12 frames per second</option><option value={24}>24 frames per second</option></select></label></div><div className="settings-group"><div className="settings-group-title">ONION SKIN</div><label className="settings-toggle"><span><strong>Enable onion skin</strong><small>Display previous and following drawings</small></span><input type="checkbox" checked={onion.enabled} onChange={(event) => setOnion({ ...onion, enabled: event.target.checked })} /></label><label className="settings-line"><span>Previous frames</span><select value={onion.before} onChange={(event) => setOnion({ ...onion, before: Number(event.target.value) })}><option value={0}>Off</option><option value={1}>1 frame</option><option value={2}>2 frames</option><option value={3}>3 frames</option></select></label><label className="settings-line"><span>Following frames</span><select value={onion.after} onChange={(event) => setOnion({ ...onion, after: Number(event.target.value) })}><option value={0}>Off</option><option value={1}>1 frame</option><option value={2}>2 frames</option><option value={3}>3 frames</option></select></label><label className="settings-line"><span>Previous opacity</span><strong>{Math.round(onion.beforeOpacity * 100)}%</strong></label><input type="range" min="0.05" max="0.65" step="0.05" value={onion.beforeOpacity} onChange={(event) => setOnion({ ...onion, beforeOpacity: Number(event.target.value) })} /><label className="settings-line"><span>Following opacity</span><strong>{Math.round(onion.afterOpacity * 100)}%</strong></label><input type="range" min="0.05" max="0.65" step="0.05" value={onion.afterOpacity} onChange={(event) => setOnion({ ...onion, afterOpacity: Number(event.target.value) })} /></div><div className="modal-footnote">The document frame rate is saved with the project. Onion skin is an editor aid and is excluded from exports.</div></div>;
+  return <div className="settings-modal-content"><div className="settings-group"><div className="settings-group-title">PLAYBACK</div><label className="settings-line"><span>Project frame rate</span><select value={fps} onChange={(event) => { const next = Number(event.target.value); setFps(next); setProjectRate(next); }}><option value={12}>12 frames per second</option><option value={24}>24 frames per second</option></select></label></div><div className="settings-group"><div className="settings-group-title">ONION SKIN</div><label className="settings-toggle"><span><strong>Enable onion skin</strong><small>Display previous and following drawings</small></span><input type="checkbox" checked={onion.enabled} onChange={(event) => setOnion({ ...onion, enabled: event.target.checked })} /></label><label className="settings-line"><span>Previous frames</span><select value={onion.before} onChange={(event) => setOnion({ ...onion, before: Number(event.target.value) })}><option value={0}>Off</option><option value={1}>1 frame</option><option value={2}>2 frames</option><option value={3}>3 frames</option></select></label><label className="settings-line"><span>Following frames</span><select value={onion.after} onChange={(event) => setOnion({ ...onion, after: Number(event.target.value) })}><option value={0}>Off</option><option value={1}>1 frame</option><option value={2}>2 frames</option><option value={3}>3 frames</option></select></label><label className="settings-line"><span>Previous opacity</span><strong>{Math.round(onion.beforeOpacity * 100)}%</strong></label><input type="range" min="0.05" max="0.65" step="0.05" value={onion.beforeOpacity} onChange={(event) => setOnion({ ...onion, beforeOpacity: Number(event.target.value) })} /><label className="settings-line"><span>Following opacity</span><strong>{Math.round(onion.afterOpacity * 100)}%</strong></label><input type="range" min="0.05" max="0.65" step="0.05" value={onion.afterOpacity} onChange={(event) => setOnion({ ...onion, afterOpacity: Number(event.target.value) })} /></div><div className="settings-group"><div className="settings-group-title">OPTIONAL EXTENSIONS</div><div className="settings-extension-row"><div><strong>Coloring Mode</strong><small>Optional non-destructive fill and palette tools. LightTable drawing, animation, saving and export do not depend on it.</small></div><button className="modal-secondary-action" onClick={onTogglePlugin} disabled={pluginBusy}>{pluginBusy ? 'Working…' : pluginEnabled ? 'Disable' : 'Enable'}</button></div></div><div className="modal-footnote">The document frame rate is saved with the project. Onion skin is an editor aid and is excluded from exports.</div></div>;
 }
 
 function ExportModal({ busy, progress, onPng, onPdf, onProject, onClose }: { busy: boolean; progress: { label: string; fraction: number } | null; onPng: () => void; onPdf: () => void; onProject: () => void; onClose: () => void }): React.JSX.Element {

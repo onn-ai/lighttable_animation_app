@@ -1,6 +1,26 @@
-import { cloneValue, createCel, createLayer, newId, primaryTrack, resolveClipAt, type ContentLayer, type ExposureClip, type ProjectDocumentV1 } from './types';
+import { cloneValue, createCel, createLayer, newId, primaryTrack, resolveClipAt, type AnimationTrack, type ContentLayer, type ExposureClip, type ProjectDocumentV1 } from './types';
 import type { TransactionEngine } from '../history/transaction-engine';
 import { MAX_LAYERS_PER_CEL_V1, MAX_USER_FRAME_COUNT } from './types';
+
+/** Create a new independent animation track with a blank drawing for each timeline tick. */
+export function addTrack(engine: TransactionEngine, requestedName?: string): string {
+  let createdTrackId = '';
+  engine.transact('Add animation track', (draft) => {
+    const index = draft.tracks.length + 1;
+    const name = requestedName?.trim().slice(0, 64) || `Animation ${index}`;
+    const track: AnimationTrack = {
+      id: newId('track'), name, visible: true, locked: false, opacity: 1, blendMode: 'normal', clips: [],
+    };
+    for (let tick = 0; tick < draft.document.durationTicks; tick += 1) {
+      const cel = createCel('Layer 1');
+      draft.cels[cel.id] = cel;
+      track.clips.push({ id: newId('clip'), startTick: tick, durationTicks: 1, celId: cel.id });
+    }
+    draft.tracks.push(track);
+    createdTrackId = track.id;
+  });
+  return createdTrackId;
+}
 
 export function insertBlankFrame(engine: TransactionEngine, trackId: string, currentTick: number): number {
   if (engine.document.document.durationTicks >= MAX_USER_FRAME_COUNT) throw new Error(`LightTable supports up to ${MAX_USER_FRAME_COUNT} user-facing frames in this workflow.`);

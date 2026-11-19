@@ -55,6 +55,20 @@ export class ViewportTransform {
   }
 }
 
+/** True when a document-space point falls on the drawable paper surface. */
+export function isInsideDocument(point: { x: number; y: number }, width: number, height: number): boolean {
+  return Number.isFinite(point.x) && Number.isFinite(point.y)
+    && point.x >= 0 && point.y >= 0 && point.x <= width && point.y <= height;
+}
+
+/** Clamp a pointer sample to the paper edge while a captured gesture leaves the canvas. */
+export function clampToDocument(point: { x: number; y: number }, width: number, height: number): { x: number; y: number } {
+  return {
+    x: Math.max(0, Math.min(width, Number.isFinite(point.x) ? point.x : 0)),
+    y: Math.max(0, Math.min(height, Number.isFinite(point.y) ? point.y : 0)),
+  };
+}
+
 export function zoomAtPoint(state: ViewportState, point: { x: number; y: number }, factor: number, size: ViewportSize, documentSize: ViewportSize): ViewportState {
   const current = new ViewportTransform(documentSize.width, documentSize.height, size, state);
   const docPoint = current.viewportToDocument(point);

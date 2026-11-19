@@ -7,13 +7,14 @@ import type { ProjectRepository } from '../../core/storage/project-repository';
 interface Props {
   project: ProjectDocumentV1;
   tick: number;
+  trackId: string;
   selected: boolean;
   registry: RendererRegistry;
   repository: ProjectRepository;
   onClick: () => void;
 }
 
-export function FrameTile({ project, tick, selected, registry, repository, onClick }: Props): React.JSX.Element {
+export function FrameTile({ project, tick, trackId, selected, registry, repository, onClick }: Props): React.JSX.Element {
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(undefined);
   const [visible, setVisible] = useState(false);
   const [tileRef, setTileRef] = useState<HTMLButtonElement | null>(null);
@@ -34,7 +35,7 @@ export function FrameTile({ project, tick, selected, registry, repository, onCli
       .catch(() => setPreviewUrl(undefined));
     return () => { cancelled = true; };
   }, [visible, project, tick, registry, repository]);
-  const exposure = project.tracks[0]?.clips.find((clip) => clip.startTick <= tick && tick < clip.startTick + clip.durationTicks);
+  const exposure = project.tracks.find((track) => track.id === trackId)?.clips.find((clip) => clip.startTick <= tick && tick < clip.startTick + clip.durationTicks);
   const exposureLabel = exposure ? `CEL ${String(tick + 1).padStart(2, '0')}` : 'EMPTY';
   return <button ref={setTileRef} className={`frame-tile ${selected ? 'selected' : ''}`} onClick={onClick} aria-label={`Select frame ${tick + 1}`} aria-pressed={selected}>
     <span className="frame-preview">{previewUrl ? <img src={previewUrl} alt="" /> : <span className="preview-placeholder">{exposure ? '◌' : '—'}</span>}</span>

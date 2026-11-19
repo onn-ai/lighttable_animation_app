@@ -2,7 +2,8 @@ import type { AssetDescriptor, ProjectDocumentV1 } from '../document/types';
 import { cloneValue } from '../document/types';
 
 const DB_NAME = 'lighttable-db';
-const DB_VERSION = 1;
+// Version 2 adds pluginStorage for optional extensions. Existing v1 databases are upgraded in onupgradeneeded.
+const DB_VERSION = 2;
 type AssetRecord = { id: string; descriptor: AssetDescriptor; blob: Blob };
 type ProjectRecord = { projectId: string; document: ProjectDocumentV1; revision: number; savedAt: string };
 type PluginValueRecord = { key: string; value: unknown };

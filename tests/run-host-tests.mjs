@@ -11,7 +11,8 @@ const require = createRequire(import.meta.url);
 const { createDefaultProject, cloneValue, newId } = require('./.build/core/document/types.js');
 const { validateProject, DocumentValidationError } = require('./.build/core/document/validate.js');
 const { TransactionEngine } = require('./.build/core/history/transaction-engine.js');
-const { insertBlankFrame, duplicateFrame, deleteFrame, addLayer, removeLayer } = require('./.build/core/document/operations.js');
+const { insertBlankFrame, duplicateFrame, deleteFrame, addLayer, addTrack, removeLayer } = require('./.build/core/document/operations.js');
+const { isInsideDocument, clampToDocument } = require('./.build/core/input/viewport.js');
 const { RendererRegistry } = require('./.build/core/rendering/renderer-registry.js');
 const { renderTickToCanvas, findOnionTicks } = require('./.build/core/rendering/render-service.js');
 const { createZip, readZip, normalizeZipPath } = require('./.build/core/export/zip.js');
@@ -106,6 +107,33 @@ await test('blank, independent duplicate, and delete frame operations preserve t
   assert.equal(deleteFrame(engine, track.id, 1), 1);
   validateProject(engine.document);
   assert.equal(engine.document.document.durationTicks, 2);
+});
+
+await test('new animation tracks create independent blank cels and undo as one operation', () => {
+  const engine = new TransactionEngine(createDefaultProject());
+  const originalTrackId = engine.document.tracks[0].id;
+  insertBlankFrame(engine, originalTrackId, 0);
+  const trackId = addTrack(engine);
+  const document = engine.document;
+  const track = document.tracks.find((item) => item.id === trackId);
+  assert.ok(track);
+  assert.equal(track.name, 'Animation 2');
+  assert.equal(track.clips.length, document.document.durationTicks);
+  assert.equal(new Set(track.clips.map((clip) => clip.celId)).size, document.document.durationTicks);
+  assert.ok(track.clips.every((clip) => document.cels[clip.celId].layers[0].nodes.length === 0));
+  assert.equal(engine.undo(), true);
+  assert.equal(engine.document.tracks.length, 1);
+  assert.equal(engine.redo(), true);
+  assert.equal(engine.document.tracks.length, 2);
+  validateProject(engine.document);
+});
+
+await test('document bounds reject off-paper starts and clamp captured samples at paper edges', () => {
+  assert.equal(isInsideDocument({ x: 0, y: 0 }, 1920, 1080), true);
+  assert.equal(isInsideDocument({ x: 1921, y: 300 }, 1920, 1080), false);
+  assert.equal(isInsideDocument({ x: Number.NaN, y: 4 }, 1920, 1080), false);
+  assert.deepEqual(clampToDocument({ x: -20, y: 1200 }, 1920, 1080), { x: 0, y: 1080 });
+  assert.deepEqual(clampToDocument({ x: 400, y: 500 }, 1920, 1080), { x: 400, y: 500 });
 });
 
 await test('cel layer operations cap at four and preserve one editable layer', () => {
