@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lighttable.example/schemas/package-manifest-1.json",
+  "title": "LightTable .ltproj Package Manifest v1",
+  "type": "object",
+  "required": ["format", "packageVersion", "projectId", "projectSchemaVersion", "documentPath", "assets", "createdAt"],
+  "properties": {
+    "format": { "const": "lighttable.package" },
+    "packageVersion": { "const": 1 },
+    "projectId": { "type": "string", "minLength": 1 },
+    "projectSchemaVersion": { "type": "string", "minLength": 1 },
+    "documentPath": { "const": "document.json" },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "path", "mimeType", "byteLength", "sha256"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "pattern": "^assets/[A-Fa-f0-9]{64}\\.[A-Za-z0-9]+$" },
+          "mimeType": { "type": "string", "minLength": 1 },
+          "byteLength": { "type": "integer", "minimum": 0 },
+          "sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    }
+  },
+  "additionalProperties": true
+}

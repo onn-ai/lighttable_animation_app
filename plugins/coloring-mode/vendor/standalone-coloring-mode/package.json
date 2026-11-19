@@ -1,0 +1,28 @@
+{
+  "name": "standalone-coloring-mode",
+  "version": "1.0.0",
+  "description": "Dependency-free coloring-mode controller with an independent outline-rendering path.",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.js",
+    "./browser": "./src/adapters/browser-host-adapter.js",
+    "./dom": "./src/adapters/dom-canvas-layer.js"
+  },
+  "scripts": {
+    "test": "node --test",
+    "demo": "node ./scripts/serve-demo.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "keywords": [
+    "canvas",
+    "svg",
+    "rendering",
+    "coloring-mode",
+    "outline-rendering",
+    "draft-mode"
+  ]
+}

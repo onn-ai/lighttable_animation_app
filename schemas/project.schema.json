@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lighttable.example/schemas/project-1.0.0.json",
+  "title": "LightTable Project Document 1.0.0",
+  "description": "Structural schema for a LightTable project. Runtime semantic validation is also required.",
+  "type": "object",
+  "required": [
+    "format",
+    "schemaVersion",
+    "projectId",
+    "name",
+    "createdAt",
+    "updatedAt",
+    "document",
+    "tracks",
+    "cels",
+    "assets",
+    "requiredPlugins"
+  ],
+  "properties": {
+    "format": { "const": "lighttable.project" },
+    "schemaVersion": { "const": "1.0.0" },
+    "projectId": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "document": { "$ref": "#/$defs/documentSettings" },
+    "tracks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/track" }
+    },
+    "cels": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/cel" }
+    },
+    "assets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/asset" }
+    },
+    "requiredPlugins": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/pluginRequirement" }
+    },
+    "extensions": { "$ref": "#/$defs/extensionBag" },
+    "metadata": { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValue" } }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "jsonValue": {
+      "anyOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValue" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValue" } }
+      ]
+    },
+    "documentSettings": {
+      "type": "object",
+      "required": ["width", "height", "colorSpace", "background", "frameRate", "durationTicks"],
+      "properties": {
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "colorSpace": { "const": "srgb" },
+        "background": { "$ref": "#/$defs/background" },
+        "frameRate": { "$ref": "#/$defs/frameRate" },
+        "durationTicks": { "type": "integer", "minimum": 0 },
+        "physicalSizeMm": {
+          "type": "object",
+          "required": ["width", "height"],
+          "properties": {
+            "width": { "type": "number", "exclusiveMinimum": 0 },
+            "height": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "background": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": { "kind": { "const": "transparent" } },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "required": ["kind", "color"],
+          "properties": {
+            "kind": { "const": "solid" },
+            "color": { "$ref": "#/$defs/color" }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$"
+    },
+    "frameRate": {
+      "type": "object",
+      "required": ["numerator", "denominator"],
+      "properties": {
+        "numerator": { "type": "integer", "minimum": 1 },
+        "denominator": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "track": {
+      "type": "object",
+      "required": ["id", "name", "visible", "locked", "opacity", "blendMode", "clips"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "visible": { "type": "boolean" },
+        "locked": { "type": "boolean" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "blendMode": { "type": "string", "minLength": 1 },
+        "clips": { "type": "array", "items": { "$ref": "#/$defs/clip" } },
+        "extensions": { "$ref": "#/$defs/extensionBag" }
+      },
+      "additionalProperties": true
+    },
+    "clip": {
+      "type": "object",
+      "required": ["id", "startTick", "durationTicks", "celId"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "startTick": { "type": "integer", "minimum": 0 },
+        "durationTicks": { "type": "integer", "minimum": 1 },
+        "celId": { "type": "string", "minLength": 1 },
+        "extensions": { "$ref": "#/$defs/extensionBag" }
+      },
+      "additionalProperties": true
+    },
+    "cel": {
+      "type": "object",
+      "required": ["id", "layers"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "layers": {
+          "type": "array",
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/layer" }
+        },
+        "extensions": { "$ref": "#/$defs/extensionBag" }
+      },
+      "additionalProperties": true
+    },
+    "layer": {
+      "type": "object",
+      "required": ["id", "name", "kind", "visible", "locked", "opacity", "blendMode", "nodes"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "kind": { "const": "content" },
+        "visible": { "type": "boolean" },
+        "locked": { "type": "boolean" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "blendMode": { "type": "string", "minLength": 1 },
+        "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+        "extensions": { "$ref": "#/$defs/extensionBag" }
+      },
+      "additionalProperties": true
+    },
+    "node": {
+      "type": "object",
+      "required": ["id", "type", "typeVersion", "transform", "visible", "data"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "pattern": "^[a-z0-9]+([.-][a-z0-9]+)+$" },
+        "typeVersion": { "type": "integer", "minimum": 1 },
+        "transform": {
+          "type": "array",
+          "prefixItems": [
+            { "type": "number" }, { "type": "number" }, { "type": "number" },
+            { "type": "number" }, { "type": "number" }, { "type": "number" }
+          ],
+          "minItems": 6,
+          "maxItems": 6
+        },
+        "visible": { "type": "boolean" },
+        "locked": { "type": "boolean" },
+        "data": { "$ref": "#/$defs/jsonValue" },
+        "extensions": { "$ref": "#/$defs/extensionBag" }
+      },
+      "additionalProperties": true
+    },
+    "asset": {
+      "type": "object",
+      "required": ["id", "mimeType", "byteLength", "sha256"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "mimeType": { "type": "string", "minLength": 1 },
+        "byteLength": { "type": "integer", "minimum": 0 },
+        "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "fileName": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "pluginRequirement": {
+      "type": "object",
+      "required": ["id", "versionRange", "apiVersionRange", "optional"],
+      "properties": {
+        "id": { "type": "string", "minLength": 3 },
+        "versionRange": { "type": "string", "minLength": 1 },
+        "apiVersionRange": { "type": "string", "minLength": 1 },
+        "requiredFor": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["edit", "render", "import", "export"] }
+        },
+        "optional": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "extensionBag": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/pluginExtension" }
+    },
+    "pluginExtension": {
+      "type": "object",
+      "required": ["schemaVersion", "data"],
+      "properties": {
+        "schemaVersion": { "type": "integer", "minimum": 1 },
+        "data": { "$ref": "#/$defs/jsonValue" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

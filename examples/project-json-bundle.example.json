@@ -1,0 +1,25 @@
+{
+  "format": "lighttable.project-json-bundle",
+  "bundleVersion": 1,
+  "document": {
+    "format": "lighttable.project",
+    "schemaVersion": "1.0.0",
+    "projectId": "b12c9f43-1c0c-4be9-9e91-23d1328f64e9",
+    "name": "Example Empty Project",
+    "createdAt": "2026-11-19T08:00:00.000Z",
+    "updatedAt": "2026-11-19T08:00:00.000Z",
+    "document": {
+      "width": 1920,
+      "height": 1080,
+      "colorSpace": "srgb",
+      "background": { "kind": "solid", "color": "#FAF9F6" },
+      "frameRate": { "numerator": 12, "denominator": 1 },
+      "durationTicks": 0
+    },
+    "tracks": [],
+    "cels": {},
+    "assets": [],
+    "requiredPlugins": []
+  },
+  "embeddedAssets": []
+}

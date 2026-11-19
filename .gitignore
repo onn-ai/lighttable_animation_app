@@ -1,0 +1,9 @@
+# Dependencies and generated test/build output
+**/node_modules/
+/.vite/
+/dist/
+/tests/.build/
+/coverage/
+*.log
+.DS_Store
+Thumbs.db

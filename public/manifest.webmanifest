@@ -1,0 +1,14 @@
+{
+  "name": "LightTable Rough Animation Studio",
+  "short_name": "LightTable",
+  "description": "An offline-first digital light table for rough 2D frame-by-frame animation.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#121212",
+  "orientation": "any",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

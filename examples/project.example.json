@@ -1,0 +1,120 @@
+{
+  "format": "lighttable.project",
+  "schemaVersion": "1.0.0",
+  "projectId": "b12c9f43-1c0c-4be9-9e91-23d1328f64e9",
+  "name": "Example Walk Cycle",
+  "createdAt": "2026-11-19T08:00:00.000Z",
+  "updatedAt": "2026-11-19T08:30:00.000Z",
+  "document": {
+    "width": 1920,
+    "height": 1080,
+    "colorSpace": "srgb",
+    "background": { "kind": "solid", "color": "#FAF9F6" },
+    "frameRate": { "numerator": 12, "denominator": 1 },
+    "durationTicks": 4
+  },
+  "tracks": [
+    {
+      "id": "track-background",
+      "name": "Background",
+      "visible": true,
+      "locked": true,
+      "opacity": 1,
+      "blendMode": "normal",
+      "clips": [
+        { "id": "clip-background", "startTick": 0, "durationTicks": 4, "celId": "cel-background" }
+      ]
+    },
+    {
+      "id": "track-character",
+      "name": "Character",
+      "visible": true,
+      "locked": false,
+      "opacity": 1,
+      "blendMode": "normal",
+      "clips": [
+        { "id": "clip-a", "startTick": 0, "durationTicks": 2, "celId": "cel-a" },
+        { "id": "clip-b", "startTick": 2, "durationTicks": 2, "celId": "cel-b" }
+      ]
+    }
+  ],
+  "cels": {
+    "cel-background": {
+      "id": "cel-background",
+      "layers": [
+        {
+          "id": "layer-paper",
+          "name": "Paper",
+          "kind": "content",
+          "visible": true,
+          "locked": true,
+          "opacity": 1,
+          "blendMode": "normal",
+          "nodes": []
+        }
+      ]
+    },
+    "cel-a": {
+      "id": "cel-a",
+      "layers": [
+        {
+          "id": "layer-sketch-a",
+          "name": "Sketch",
+          "kind": "content",
+          "visible": true,
+          "locked": false,
+          "opacity": 1,
+          "blendMode": "normal",
+          "nodes": [
+            {
+              "id": "node-head-a",
+              "type": "core.path",
+              "typeVersion": 1,
+              "transform": [1, 0, 0, 1, 0, 0],
+              "visible": true,
+              "data": {
+                "samples": [
+                  { "x": 500, "y": 220, "pressure": 0.45, "timeOffsetMs": 0 },
+                  { "x": 530, "y": 230, "pressure": 0.7, "timeOffsetMs": 16 },
+                  { "x": 560, "y": 260, "pressure": 0.6, "timeOffsetMs": 32 }
+                ],
+                "paint": {
+                  "color": "#1A1A1A",
+                  "width": 5,
+                  "opacity": 1,
+                  "cap": "round",
+                  "join": "round",
+                  "composite": "source-over"
+                },
+                "smoothing": { "kind": "quadratic" }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "cel-b": {
+      "id": "cel-b",
+      "layers": [
+        {
+          "id": "layer-sketch-b",
+          "name": "Sketch",
+          "kind": "content",
+          "visible": true,
+          "locked": false,
+          "opacity": 1,
+          "blendMode": "normal",
+          "nodes": []
+        }
+      ]
+    }
+  },
+  "assets": [],
+  "requiredPlugins": [],
+  "extensions": {
+    "com.example.coloring-studio": {
+      "schemaVersion": 1,
+      "data": { "paletteId": "basic-pencils", "regions": [] }
+    }
+  }
+}

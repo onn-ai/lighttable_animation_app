@@ -1,0 +1,37 @@
+{
+  "manifestVersion": 1,
+  "id": "com.example.coloring-studio",
+  "name": "Coloring Studio",
+  "version": "1.0.0",
+  "description": "An independent coloring mode for LightTable projects.",
+  "author": "Example Developer",
+  "apiVersionRange": "^1.0.0",
+  "hostVersionRange": ">=1.0.0 <2.0.0",
+  "execution": "trusted-ui",
+  "entry": "dist/index.js",
+  "permissions": [
+    "document.read",
+    "document.write",
+    "timeline.read",
+    "canvas.render",
+    "ui.modes",
+    "ui.panels",
+    "history.commands",
+    "assets.read",
+    "assets.write",
+    "storage.plugin"
+  ],
+  "dependencies": [],
+  "contributes": {
+    "tools": ["paint-bucket", "color-picker"],
+    "modes": ["coloring"],
+    "toolbar": [],
+    "menus": [],
+    "overlays": [],
+    "panels": ["palette", "coloring-settings"],
+    "commands": ["clear-coloring-layer"],
+    "nodeTypes": ["com.example.coloring.region"],
+    "importers": [],
+    "exporters": []
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "manifestVersion": 1,
+  "id": "com.lighttable.coloring",
+  "name": "Coloring Mode",
+  "version": "1.0.0",
+  "description": "A non-destructive coloring workspace with palette, paint bucket, color picker and Draft / Outlines Only mode.",
+  "author": "LightTable First-Party Plugins",
+  "apiVersionRange": "^1.0.0",
+  "hostVersionRange": ">=1.0.0 <2.0.0",
+  "execution": "trusted-ui",
+  "entry": "dist/index.js",
+  "license": "MIT",
+  "keywords": ["coloring", "paint-bucket", "palette", "animation", "draft-mode"],
+  "permissions": [
+    "document.read",
+    "document.write",
+    "timeline.read",
+    "canvas.input",
+    "canvas.render",
+    "ui.modes",
+    "ui.panels",
+    "ui.toolbar",
+    "history.commands",
+    "assets.read",
+    "assets.write",
+    "storage.plugin"
+  ],
+  "dependencies": [],
+  "contributes": {
+    "tools": ["paint-bucket", "color-picker"],
+    "modes": ["coloring"],
+    "panels": ["palette", "coloring-options"],
+    "commands": ["toggle-draft"],
+    "nodeTypes": ["com.lighttable.coloring.region"],
+    "toolbar": ["toggle-draft"],
+    "menus": ["toggle-draft"]
+  }
+}

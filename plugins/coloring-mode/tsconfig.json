@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "strict": true,
+    "noEmitOnError": true,
+    "skipLibCheck": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "declaration": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "typeRoots": [
+      "./tests/stubs"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@lighttable/plugin-sdk": [
+        "vendor/lighttable-plugin-sdk-contract/index.d.ts"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "tests/stubs/react.d.ts"
+  ]
+}

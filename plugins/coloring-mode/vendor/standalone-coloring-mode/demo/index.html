@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Coloring Mode — Integration Demo</title>
+  <style>
+    :root { color-scheme: light; font: 15px/1.45 system-ui, sans-serif; color: #202a33; background: #f3f5f7; }
+    * { box-sizing: border-box; }
+    body { max-width: 980px; padding: 24px; margin: 0 auto; }
+    h1 { margin: 0 0 5px; font-size: 25px; }
+    h2 { margin: 0 0 12px; font-size: 16px; }
+    p { margin: 0; color: #53616d; }
+    .card { background: white; border: 1px solid #dce2e7; border-radius: 12px; padding: 16px; margin-top: 16px; }
+    .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .controls { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 14px; }
+    button { padding: 9px 13px; border: 1px solid #c8d0d7; border-radius: 8px; background: #fff; color: #202a33; cursor: pointer; }
+    button[aria-pressed="true"] { background: #243e56; color: white; border-color: #243e56; }
+    .switch { display: inline-flex; align-items: center; gap: 9px; }
+    .switch input { width: 19px; height: 19px; }
+    .stage { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 9px; background: #f1eee7; margin-top: 14px; }
+    canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .stats { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 9px; margin-top: 14px; }
+    .stat { background: #f5f7f9; border-radius: 8px; padding: 10px; }
+    .value { font-weight: 700; font-size: 22px; font-variant-numeric: tabular-nums; }
+    .label { color: #64717c; font-size: 12px; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f5f7f9; border-radius: 8px; padding: 12px; font-size: 12px; }
+    #status { font-weight: 650; }
+    #log { min-height: 1.5em; font-size: 13px; color: #53616d; }
+    @media (max-width: 580px) { body { padding: 14px; } .stats { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Independent Coloring Mode</h1>
+    <p>Browser host-adapter demo. The host owns the refresh loop; the module controls color-buffer visibility and color-render scheduling.</p>
+  </header>
+
+  <section class="card">
+    <div class="bar">
+      <div><h2>Draft / Outlines Only</h2><p>Switching is synchronous; outline drawing continues.</p></div>
+      <label class="switch"><input id="draftToggle" type="checkbox"><strong>Enable Draft</strong></label>
+    </div>
+    <div class="stage" id="stage">
+      <canvas id="colorBase" aria-label="Base color buffer"></canvas>
+      <canvas id="colorDetail" aria-label="Detail color buffer"></canvas>
+      <canvas id="outline" aria-label="Outline layer"></canvas>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="value" id="fps">—</div><div class="label">Host loop FPS</div></div>
+      <div class="stat"><div class="value" id="outlineFrames">0</div><div class="label">Outline frames</div></div>
+      <div class="stat"><div class="value" id="colorFrames">0</div><div class="label">Color draws</div></div>
+    </div>
+    <div class="controls">
+      <button id="restore">Restore color mode</button>
+      <button id="toggleBase" aria-pressed="true">Base fill: on</button>
+      <button id="toggleDetail" aria-pressed="true">Detail fill: on</button>
+    </div>
+    <p id="status" style="margin-top:13px">COLOR MODE · all layers enabled</p>
+    <p id="log" aria-live="polite">Ready.</p>
+  </section>
+
+  <section class="card">
+    <h2>Host integration example</h2>
+    <pre><code>const coloring = attachBrowserColoringMode({
+  colorLayers: [
+    { id: 'base', element: baseCanvas },
+    { id: 'detail', element: detailCanvas }
+  ],
+  onColorRenderingEnabled(id, enabled) {
+    colorRenderGate[id] = enabled;
+  }
+});
+
+// Inside the EXISTING host render loop:
+if (colorRenderGate.base) renderBaseColor();
+if (colorRenderGate.detail) renderDetailColor();
+renderOutlines(); // always follows the host's normal refresh cadence</code></pre>
+  </section>
+
+  <script type="module" src="./demo.js"></script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lighttable.example/schemas/plugin-manifest-1.json",
+  "title": "LightTable Plugin Manifest v1",
+  "type": "object",
+  "required": [
+    "manifestVersion",
+    "id",
+    "name",
+    "version",
+    "description",
+    "author",
+    "apiVersionRange",
+    "hostVersionRange",
+    "execution",
+    "entry",
+    "permissions",
+    "dependencies",
+    "contributes"
+  ],
+  "properties": {
+    "manifestVersion": { "const": 1 },
+    "id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 160,
+      "pattern": "^[a-z0-9]+([.-][a-z0-9]+)+$"
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$" },
+    "description": { "type": "string", "maxLength": 2000 },
+    "author": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "apiVersionRange": { "type": "string", "minLength": 1 },
+    "hostVersionRange": { "type": "string", "minLength": 1 },
+    "execution": { "const": "trusted-ui" },
+    "entry": { "$ref": "#/$defs/packagePath" },
+    "icon": { "$ref": "#/$defs/packagePath" },
+    "homepage": { "type": "string", "format": "uri" },
+    "license": { "type": "string", "maxLength": 128 },
+    "keywords": { "type": "array", "uniqueItems": true, "items": { "type": "string", "maxLength": 64 } },
+    "networkOrigins": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "format": "uri" }
+    },
+    "permissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "document.read", "document.write", "timeline.read", "timeline.write",
+          "canvas.input", "canvas.render", "selection.read", "selection.write",
+          "ui.panels", "ui.toolbar", "ui.modes", "history.commands",
+          "project.import", "project.export", "assets.read", "assets.write",
+          "storage.plugin", "network"
+        ]
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/dependency" }
+    },
+    "contributes": { "$ref": "#/$defs/contributions" },
+    "integrity": {
+      "type": "object",
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "publisher": { "type": "string" },
+        "signature": { "type": "string" }
+      },
+      "required": ["algorithm", "digest"],
+      "additionalProperties": true
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "permissions": { "contains": { "const": "network" } } }, "required": ["permissions"] },
+      "then": { "required": ["networkOrigins"], "properties": { "networkOrigins": { "minItems": 1 } } }
+    }
+  ],
+  "additionalProperties": true,
+  "$defs": {
+    "packagePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(^|/)\\.\\.?(/|$))[A-Za-z0-9._/-]+$"
+    },
+    "dependency": {
+      "type": "object",
+      "required": ["id", "versionRange"],
+      "properties": {
+        "id": { "type": "string", "minLength": 3 },
+        "versionRange": { "type": "string", "minLength": 1 },
+        "optional": { "type": "boolean", "default": false }
+      },
+      "additionalProperties": false
+    },
+    "contributions": {
+      "type": "object",
+      "properties": {
+        "tools": { "$ref": "#/$defs/idList" },
+        "modes": { "$ref": "#/$defs/idList" },
+        "panels": { "$ref": "#/$defs/idList" },
+        "commands": { "$ref": "#/$defs/idList" },
+        "nodeTypes": { "$ref": "#/$defs/idList" },
+        "importers": { "$ref": "#/$defs/idList" },
+        "exporters": { "$ref": "#/$defs/idList" },
+        "toolbar": { "$ref": "#/$defs/idList" },
+        "menus": { "$ref": "#/$defs/idList" },
+        "overlays": { "$ref": "#/$defs/idList" }
+      },
+      "additionalProperties": true
+    },
+    "idList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 160 }
+    }
+  }
+}
