@@ -13,6 +13,7 @@ import { InputService, type InputSample } from '../core/input/input-service';
 import { ViewportTransform, clampToDocument, isInsideDocument, type ViewportState, zoomAtPoint } from '../core/input/viewport';
 import { RendererRegistry } from '../core/rendering/renderer-registry';
 import { renderCorePath } from '../core/rendering/path-renderer';
+import { clearCanvasInDeviceSpace } from '../core/rendering/canvas-surface';
 import { type OnionSettings } from '../core/rendering/render-service';
 import { ProjectRepository, AutosaveController } from '../core/storage/project-repository';
 import { exportProjectPackage, importProjectPackage } from '../core/export/project-package';
@@ -253,7 +254,9 @@ export default function App(): React.JSX.Element {
     const canvas = overlayCanvasRef.current;
     const context = canvas?.getContext('2d');
     if (!canvas || !context) return;
-    context.clearRect(0, 0, canvas.width, canvas.height);
+    // Preview drawing leaves the viewport transform active. Clear in backing-store
+    // coordinates so no pixels from the previous gesture survive an undo.
+    clearCanvasInDeviceSpace(context, canvas.width, canvas.height);
   }, []);
 
   const paintStrokePreview = useCallback((samples: CorePathSample[], tool: CoreTool) => {
@@ -262,7 +265,7 @@ export default function App(): React.JSX.Element {
     if (!canvas || !viewport) return;
     const context = canvas.getContext('2d');
     if (!context) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.clearRect(0, 0, canvas.width, canvas.height);
     viewport.applyToContext(context, dpr);

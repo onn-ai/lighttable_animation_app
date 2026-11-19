@@ -22,6 +22,7 @@ const { ProjectRepository, AutosaveController } = require('./.build/core/storage
 const { createPluginApi, EventBus } = require('./.build/core/plugins/sdk-host.js');
 const { RendererRegistry: HostRendererRegistry } = require('./.build/core/rendering/renderer-registry.js');
 const { InputService } = require('./.build/core/input/input-service.js');
+const { clearCanvasInDeviceSpace } = require('./.build/core/rendering/canvas-surface.js');
 
 let passCount = 0;
 function test(name, run) {
@@ -134,6 +135,47 @@ await test('document bounds reject off-paper starts and clamp captured samples a
   assert.equal(isInsideDocument({ x: Number.NaN, y: 4 }, 1920, 1080), false);
   assert.deepEqual(clampToDocument({ x: -20, y: 1200 }, 1920, 1080), { x: 0, y: 1080 });
   assert.deepEqual(clampToDocument({ x: 400, y: 500 }, 1920, 1080), { x: 400, y: 500 });
+});
+
+await test('preview canvas clearing resets the viewport transform before clearing the full backing store', () => {
+  const calls = [];
+  const context = {
+    setTransform: (...values) => calls.push(['setTransform', ...values]),
+    clearRect: (...values) => calls.push(['clearRect', ...values]),
+  };
+  clearCanvasInDeviceSpace(context, 2400, 1350);
+  assert.deepEqual(calls, [
+    ['setTransform', 1, 0, 0, 1, 0, 0],
+    ['clearRect', 0, 0, 2400, 1350],
+  ]);
+});
+
+await test('one drawing gesture is stored as one undoable path node', () => {
+  const engine = new TransactionEngine(createDefaultProject());
+  const track = engine.document.tracks[0];
+  const celId = track.clips[0].celId;
+  const layerId = engine.document.cels[celId].layers[0].id;
+  const samples = Array.from({ length: 12 }, (_, index) => ({ x: index * 10, y: index * 4, pressure: 0.5 }));
+  engine.transact('Pencil stroke', (draft) => {
+    draft.cels[celId].layers.find((layer) => layer.id === layerId).nodes.push({
+      id: 'single-gesture-node', type: 'core.path', typeVersion: 1,
+      transform: [1, 0, 0, 1, 0, 0], visible: true,
+      data: {
+        samples,
+        paint: { color: '#1A1A1A', width: 5, opacity: 1, cap: 'round', join: 'round', composite: 'source-over' },
+      },
+    });
+  });
+  let nodes = engine.document.cels[celId].layers[0].nodes;
+  assert.equal(nodes.length, 1);
+  assert.equal(nodes[0].data.samples.length, samples.length);
+  assert.equal(engine.undo(), true);
+  nodes = engine.document.cels[celId].layers[0].nodes;
+  assert.equal(nodes.length, 0);
+  assert.equal(engine.redo(), true);
+  nodes = engine.document.cels[celId].layers[0].nodes;
+  assert.equal(nodes.length, 1);
+  assert.equal(nodes[0].data.samples.length, samples.length);
 });
 
 await test('cel layer operations cap at four and preserve one editable layer', () => {

@@ -60,7 +60,7 @@ python3 tests/validate-schemas.py
 | Core TypeScript compilation | PASS |
 | Host TypeScript compile against local UI shim | PASS |
 | Test TypeScript compilation | PASS |
-| Host runtime regression checks | 15 / 15 PASS |
+| Host runtime regression checks | 17 / 17 PASS |
 | Coloring Mode algorithm + integration tests | 21 / 21 PASS |
 | Supplied standalone Coloring Mode controller tests | 12 / 12 PASS |
 | JSON Schema/example acceptance and rejection checks | PASS |
@@ -118,3 +118,12 @@ Treat this repository as an implementation-complete **functional alpha**, not a 
 - The root `dev` and `build` commands no longer run the optional Coloring Mode compiler. The plugin remains explicitly opt-in under Workspace Settings.
 - The filmstrip now has a compact track selector and `+ Add track` control. A new track starts with a separate empty cel for every current frame. Choose **New animation** from the project menu to create a separate project instead.
 - Core, host and test TypeScript checks pass; host runtime and schema tests pass. This environment still does not contain the complete React/Vite dependency tree, so the full browser UI launch/build remains to be verified on the user's machine.
+
+
+## 9. Undo preview residue fix (latest user-reported issue)
+
+A report described undo removing only part of a stroke, with the remaining pixels disappearing as soon as a new stroke began. The issue was traced to the transient input/preview canvas, not the transaction engine: `paintStrokePreview()` applies the viewport transform to the overlay context, but `resetOverlay()` previously called `clearRect()` without resetting that transform. The clear therefore covered only a transformed subset of the backing store. The document history correctly removed the committed path node while stale preview pixels remained on top; the next preview reset the transform and cleared the entire overlay, making the remainder disappear.
+
+The host now uses `clearCanvasInDeviceSpace()` to reset the transform to identity before clearing the full backing store. Preview DPR is also clamped consistently with the canvas allocation limit. Two regression checks were added: one asserts the identity transform is applied before the full-surface clear, and one verifies a multi-sample drawing gesture is stored as a single path node and removed/restored atomically by undo/redo.
+
+Latest validation: `npm run typecheck:core`, `npm run typecheck:host`, and `npm test` pass; host runtime regression checks are **17 / 17 PASS** and all schema checks pass. This code-level fix is ready for browser confirmation, but the full Vite/real-browser run remains outstanding because the root React/Vite dependencies are not installed in this environment.
