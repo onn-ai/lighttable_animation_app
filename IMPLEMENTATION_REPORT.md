@@ -72,6 +72,7 @@ The host UI compile uses `tsconfig.hostcheck.json` and a local React declaration
 
 ## 4. Build and test environment limitations
 
+- **Windows TypeScript launcher fix:** `plugins/coloring-mode/scripts/build.mjs` now resolves `typescript/bin/tsc` from the root project and invokes it with `process.execPath`. This avoids the Windows `.cmd` shim failure (`spawnSync tsc ENOENT`) and uses file-URL conversion for Windows-safe paths. The corrected build script and the 21 Coloring Mode tests pass in the available Node environment.
 - The root React/Vite dependency tree was not available. `npm install` could not complete against the package registry, and the offline install failed because required packages were not cached. As a result, **`vite build`, `npm run dev` and a full dependency-backed root typecheck were not run**.
 - No automated real-browser end-to-end suite was run.
 - No physical Android stylus or Huion Note E hardware was available for input, palm-rejection or latency verification.

@@ -17,6 +17,8 @@ npm run dev
 
 The Vite development server listens on `http://localhost:5173`. For a production build, run `npm run build` and serve the generated `dist/` directory over HTTPS (or localhost during development). The Coloring Mode package is compiled before the host is started or built.
 
+**Windows note:** run `npm install` from this project root before starting the app. The Coloring Mode build invokes the project-local TypeScript JavaScript CLI through Node, rather than trying to execute the Windows `tsc.cmd` shim directly. If the build reports that TypeScript is not installed, restore the project development dependencies with `npm install --include=dev`.
+
 Useful verification commands:
 
 ```sh
